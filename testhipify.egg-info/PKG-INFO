@@ -1,0 +1,14 @@
+Metadata-Version: 2.1
+Name: testhipify
+Version: 0.0.1
+Summary: Convert CUDA Samples to HIP Samples,compilation and execution is automated.
+Home-page: https://github.com/AryamanAMD/testhipify
+Author: Aryaman Mishra
+Author-email: aryamanatamd@gmail.com
+Project-URL: Bug Tracker, https://github.com/AryamanAMD/testhipify/issues
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+
+![image](https://user-images.githubusercontent.com/115460120/215019805-efe0a5eb-5520-4b90-8bb5-81636a79afd1.png)

@@ -1,0 +1,2 @@
+[console_scripts]
+testhipify = runner.cli:main
