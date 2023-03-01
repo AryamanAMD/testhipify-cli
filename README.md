@@ -2,7 +2,7 @@
 To build:<br>
 1.Navigate to Directory.<br>
 2.Use the following command<br>
-```python
+```
 pip install .
 ```
 <br>
