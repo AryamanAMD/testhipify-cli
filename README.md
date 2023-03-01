@@ -1,4 +1,4 @@
-<h1>Instructions<h1><br>
+<h1>Instructions</h1><br>
 To build:
 1.Navigate to Directory.
 2.Use the following command
