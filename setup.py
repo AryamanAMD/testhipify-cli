@@ -12,9 +12,9 @@ setuptools.setup(
                 "to HIP Samples,compilation and execution is automated."),
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/AryamanAMD/testhipify",
+    url="https://github.com/AryamanAMD/testhipify-cli",
     project_urls={
-        "Bug Tracker": "https://github.com/AryamanAMD/testhipify/issues",
+        "Bug Tracker": "https://github.com/AryamanAMD/testhipify-cli/issues",
     },
     classifiers=[
         "Programming Language :: Python :: 3",

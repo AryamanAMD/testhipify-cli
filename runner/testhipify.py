@@ -14,6 +14,13 @@ from patch_gen3 import *
 '''
 #import argparse
 cuda_path = '/usr/local/cuda-12.0/targets/x86_64-linux/include'
+user_platform=''
+try:
+	with open('user_platform.txt','r') as f:
+			user_platform=f.read()
+	f.close()				
+except FileNotFoundError:
+	pass	
 def getListOfFiles(dirName):
     listOfFile=os.listdir(dirName)
     allFiles=list()
@@ -62,7 +69,9 @@ def prepend_line(file_name, line):
 		for elem in lines:
 			if elem == '#include <stdio.h>\n':
 				index=lines.index(elem)
-				lines.insert(index+1,line)
+				lines.insert(index+8,line)
+			else:
+				continue	
 		with open(p+'/'+'a.cu.hip','w') as fp:
 			for item in lines:
 				fp.write(item)
@@ -84,7 +93,13 @@ def check_for_word(file_name,word):
 
 def setup():
 	global cuda_path
+	global user_platform
 	#cuda_path = '/usr/local/cuda-12.0/targets/x86_64-linux/include'
+	print("Enter Nvidia or AMD as per your system specifications.")
+	user_platform=input()
+	with open('user_platform.txt','w') as f:
+		f.write(str(user_platform))
+	f.close()	
 	print ('Confirm the following CUDA Installation path for compilation:')
 	print('CUDA Path:'+cuda_path)
 	print('If Path is incorrect,please provide current path by typing CUDA or press any key to continue')
@@ -167,9 +182,27 @@ def setup():
 		os.system('source $HOME/.bashrc')
 		print('mpirun --version')
 		os.system('mpirun --version')
-
-
-
+	'''	
+	listOfFiles=getListOfFiles('src/samples/Samples')
+	print("Do you also want to generate files of extension cu.cpp for compilation on Nvidia devices?")
+	user_input=input()
+	if user_input.lower() == 'yes' or user_input.lower() == 'y':
+		for elem in listOfFiles:
+			if elem.endswith('.cu'):
+				with open('final_ignored_samples.txt','r') as f:
+					if elem in f.read():
+						print("Ignoring this sample "+elem)
+					else:
+						elem2=elem+'.cpp'
+						if os.path.exists(elem2)==False:
+							print('Writing to '+elem2)
+							with open(elem+'.hip','r') as f1, open(elem2,'a') as f2:
+								for line in f1:
+									f2.write(line)
+	'''								
+						
+					
+						
 def parenthesis_check(file_name):
 	string=''
 	p=os.path.dirname(file_name)
@@ -235,18 +268,42 @@ def check(myStr):
   
 def ftale(x):
 	generate(x)
-	#apply_patches()
+	apply_patches_individually(x)
 	compilation_1(x)
 	compilation_2(x)
 	runsample(x)
 	
 def generate_all(y):
+	global user_platform
 	y=y.replace('"', '')
 	listOfFiles=getListOfFiles(y)
 	for elem in listOfFiles:
 		if elem.endswith('.cu'):  ##or elem.endswith('.cpp') 
-				generate(elem)
-	apply_patches()				
+				#generate(elem)	
+				with open('final_ignored_samples.txt','r') as f:
+					if elem in f.read():
+						print("Ignoring this sample "+elem)
+					else:
+						generate(elem)						
+	apply_patches()
+	#find . -type f -name '*.cu.hip' -print -delete	
+	#print("Do you also want to generate files of extension cu.cpp for compilation on Nvidia devices?")
+	#user_input=input()
+	#if user_input.lower() == 'yes' or user_input.lower() == 'y':
+	if user_platform.lower()=='nvidia' :
+		for elem in listOfFiles:
+			if elem.endswith('.cu'):
+				with open('final_ignored_samples.txt','r') as f:
+					if elem in f.read():
+						print("Ignoring this sample "+elem)
+					else:
+						elem2=elem+'.cpp'
+						if os.path.exists(elem2)==False:
+							print('Writing to '+elem2)
+							with open(elem+'.hip','r') as f1, open(elem2,'a') as f2:
+								for line in f1:
+									f2.write(line)			
+		
 
 def compilation_1_all(y):
 	y=y.replace('"', '')
@@ -323,8 +380,8 @@ def generate(x):
 	command="hipify-perl "+x+" > "+x+".hip"
 	print(command)
 	os.system(command)
-	prepend_line(p+"/"+q+".hip",'#include "HIPCHECK.h"\n')
-	prepend_line(p+"/"+q+".hip",'#include "rocprofiler.h"\n')
+	prepend_line(x+".hip",'#include "HIPCHECK.h"\n')
+	prepend_line(x+".hip",'#include "rocprofiler.h"\n')
 	textToSearch="checkCudaErrors"
 	textToReplace="HIPCHECK"
 	fileToSearch=p+"/"+q+".hip"
@@ -367,72 +424,125 @@ def apply_patches():
 			os.system(command)
 			os.system('find . -name "*.rej" -type f -delete')
 
+def apply_patches_individually(x):
+	patch_path='src/patches'
+	search_path=x+'.hip'
+	patch_files=[]
+	dir=os.listdir(patch_path)
+	for fname in dir:
+		if os.path.isfile(patch_path+os.sep+fname):
+			f=open(patch_path+os.sep+fname,'r')
+			if search_path in f.read():
+				#print('found path in patch file '+fname)
+				patch_files.append(fname)
+			'''	
+			else:
+				print('Not found')
+			'''	
+			f.close()
+	for patch in patch_files:
+		command='git apply --reject --whitespace=fix '+patch_path+'/'+patch
+		print(command)
+		os.system(command)
+		os.system('find . -name "*.rej" -type f -delete')			
 	
 def compilation_1(x):
 	global cuda_path
+	global user_platform
 	cpp=[]
+	print(user_platform)
 	x=x.replace('"', '')
 	p=os.path.dirname(x)
-	q=os.path.basename(x)
 	p=p.replace("\\","/")
-	if x=='src/samples/Samples/0_Introduction/simpleMPI/simpleMPI.cu':
+	if x=='src/samples/Samples/0_Introduction/simpleMPI/simpleMPI.cu' and user_platform.lower() == 'amd':
 		command='hipcc -I src/samples/Common src/samples/Samples/0_Introduction/simpleMPI/simpleMPI.cu.hip src/samples/Samples/0_Introduction/simpleMPI/simpleMPI_hipified.cpp -lmpi -o src/samples/Samples/0_Introduction/simpleMPI/simpleMPI.out'
 		print(command)
 		os.system(command)
-	elif x=='src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleDeviceLibrary.cu' or x=='/src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleSeparateCompilation.cu':
+	elif x=='src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleDeviceLibrary.cu' or x=='/src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleSeparateCompilation.cu' and user_platform.lower() == 'amd':
 		command='hipcc -I src/samples/Common -fgpu-rdc src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleDeviceLibrary.cu.hip src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleSeparateCompilation.cu.hip -o src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleSeparateCompilation.out'
 		print(command)
 		os.system(command)	
-	elif x=='src/samples/Samples/0_Introduction/cudaOpenMP/cudaOpenMP.cu':
+	elif x=='src/samples/Samples/0_Introduction/cudaOpenMP/cudaOpenMP.cu' and user_platform.lower() == 'amd':
 		command='hipcc -I src/samples/Common -fopenmp src/samples/Samples/0_Introduction/cudaOpenMP/cudaOpenMP.cu.hip -o src/samples/Samples/0_Introduction/cudaOpenMP/cudaOpenMP.out'
 		print(command)
+		os.system(command)
+	if x=='src/samples/Samples/0_Introduction/simpleMPI/simpleMPI.cu' and user_platform.lower() == 'nvidia':
+		command='hipcc -I src/samples/Common src/samples/Samples/0_Introduction/simpleMPI/simpleMPI.cu.cpp src/samples/Samples/0_Introduction/simpleMPI/simpleMPI_hipified.cpp -lmpi -o src/samples/Samples/0_Introduction/simpleMPI/simpleMPI.out'
+		print(command)
+		os.system(command)
+	elif x=='src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleDeviceLibrary.cu' or x=='/src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleSeparateCompilation.cu' and user_platform.lower() == 'nvidia':
+		command='hipcc -I src/samples/Common -fgpu-rdc src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleDeviceLibrary.cu.cpp src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleSeparateCompilation.cu.cpp -o src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleSeparateCompilation.out'
+		print(command)
 		os.system(command)	
-	else:
+	elif x=='src/samples/Samples/0_Introduction/cudaOpenMP/cudaOpenMP.cu' and user_platform.lower() == 'nvidia':
+		command='hipcc -I src/samples/Common -fopenmp src/samples/Samples/0_Introduction/cudaOpenMP/cudaOpenMP.cu.cpp -o src/samples/Samples/0_Introduction/cudaOpenMP/cudaOpenMP.out'
+		print(command)
+		os.system(command)		
+	elif user_platform.lower()=='nvidia':
+		for file in os.listdir(p):
+			if file.endswith("_hipified.cpp") or file.endswith(".cu.cpp"):
+				cpp.append(file)	
+	elif user_platform.lower()=='amd':	
 		for file in os.listdir(p):
 			if file.endswith("_hipified.cpp") or file.endswith(".cu.hip"):
-				cpp.append(file)
+				cpp.append(file)	
+		
 			
 		
 
-		cpp = [p+'/'+y for y in cpp]
-		command='hipcc -I src/samples/Common -I '+cuda_path+' '+' '.join(cpp)+' -o '+p+'/'+os.path.basename(os.path.dirname(x))+'.out'
-		print(command)
-
-		os.system(command)	
+	cpp = [p+'/'+y for y in cpp]
+	command='hipcc -I src/samples/Common -I '+cuda_path+' '+' '.join(cpp)+' -o '+p+'/'+os.path.basename(os.path.dirname(x))+'.out'
+	print(command)
+	os.system(command)	
 
 	
 
 def compilation_2(x):
 	global cuda_path
+	global user_platform
 	cpp=[]
 	x=x.replace('"', '')
 	p=os.path.dirname(x)
-	q=os.path.basename(x)
 	p=p.replace("\\","/")
-	if x=='src/samples/Samples/0_Introduction/simpleMPI/simpleMPI.cu':
+	if x=='src/samples/Samples/0_Introduction/simpleMPI/simpleMPI.cu' and user_platform.lower() == 'amd':
 		command='hipcc -use-staticlib -I src/samples/Common src/samples/Samples/0_Introduction/simpleMPI/simpleMPI.cu.hip src/samples/Samples/0_Introduction/simpleMPI/simpleMPI_hipified.cpp -lmpi -o src/samples/Samples/0_Introduction/simpleMPI/simpleMPI.out'
 		print(command)
 		os.system(command)
-	elif x=='src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleDeviceLibrary.cu' or x=='src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleSeparateCompilation.cu':
+	elif x=='src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleDeviceLibrary.cu' or x=='/src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleSeparateCompilation.cu' and user_platform.lower() == 'amd':
 		command='hipcc -use-staticlib -I src/samples/Common -fgpu-rdc src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleDeviceLibrary.cu.hip src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleSeparateCompilation.cu.hip -o src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleSeparateCompilation.out'
 		print(command)
-		os.system(command)
-	elif x=='src/samples/Samples/0_Introduction/cudaOpenMP/cudaOpenMP.cu':
+		os.system(command)	
+	elif x=='src/samples/Samples/0_Introduction/cudaOpenMP/cudaOpenMP.cu' and user_platform.lower() == 'amd':
 		command='hipcc -use-staticlib -I src/samples/Common -fopenmp src/samples/Samples/0_Introduction/cudaOpenMP/cudaOpenMP.cu.hip -o src/samples/Samples/0_Introduction/cudaOpenMP/cudaOpenMP.out'
 		print(command)
+		os.system(command)
+	if x=='src/samples/Samples/0_Introduction/simpleMPI/simpleMPI.cu' and user_platform.lower() == 'nvidia':
+		command='hipcc -use-staticlib -I src/samples/Common src/samples/Samples/0_Introduction/simpleMPI/simpleMPI.cu.cpp src/samples/Samples/0_Introduction/simpleMPI/simpleMPI_hipified.cpp -lmpi -o src/samples/Samples/0_Introduction/simpleMPI/simpleMPI.out'
+		print(command)
+		os.system(command)
+	elif x=='src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleDeviceLibrary.cu' or x=='/src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleSeparateCompilation.cu' and user_platform.lower() == 'nvidia':
+		command='hipcc -use-staticlib -I src/samples/Common -fgpu-rdc src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleDeviceLibrary.cu.cpp src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleSeparateCompilation.cu.cpp -o src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleSeparateCompilation.out'
+		print(command)
 		os.system(command)	
-	else:
+	elif x=='src/samples/Samples/0_Introduction/cudaOpenMP/cudaOpenMP.cu' and user_platform.lower() == 'nvidia':
+		command='hipcc -use-staticlib -I src/samples/Common -fopenmp src/samples/Samples/0_Introduction/cudaOpenMP/cudaOpenMP.cu.cpp -o src/samples/Samples/0_Introduction/cudaOpenMP/cudaOpenMP.out'
+		print(command)
+		os.system(command)		
+	elif user_platform.lower()=='nvidia':
+		for file in os.listdir(p):
+			if file.endswith("_hipified.cpp") or file.endswith(".cu.cpp"):
+				cpp.append(file)	
+	elif user_platform.lower()=='amd':	
 		for file in os.listdir(p):
 			if file.endswith("_hipified.cpp") or file.endswith(".cu.hip"):
-				cpp.append(file)
+				cpp.append(file)		
 			
 		
 
-		cpp = [p+'/'+y for y in cpp]
-		command='hipcc -use-staticlib -I src/samples/Common -I '+cuda_path+' '+' '.join(cpp)+' -o '+p+'/'+os.path.basename(os.path.dirname(x))+'.out'
-		print(command)
-
-		os.system(command)
+	cpp = [p+'/'+y for y in cpp]
+	command='hipcc -use-staticlib -I src/samples/Common -I '+cuda_path+' '+' '.join(cpp)+' -o '+p+'/'+os.path.basename(os.path.dirname(x))+'.out'
+	print(command)
+	os.system(command)
 
 def runsample(x):	
 	print('Processing Sample:'+x)
@@ -585,7 +695,6 @@ def rem(z):
 	
 	#os.rename("final_ignored_samples1.txt","final_ignored_samples.txt")
 	os.remove('samples_to_be_ignored.txt')
-
 
 '''
 def main():
