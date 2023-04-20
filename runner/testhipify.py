@@ -47,7 +47,14 @@ def sorting(filename):
     outfile.writelines(i)
     outfile.writelines("\n")
   outfile.close()
-  os.rename("final_ignored_samples1.txt","final_ignored_samples.txt")
+  with open('final_ignored_samples1.txt','r') as f:lines=f.readlines()
+  os.remove('final_ignored_samples1.txt')
+  with open('accused_samples.txt','r') as f:lines_to_remove=f.readlines()
+  new_lines=[line for line in lines if line not in lines_to_remove]
+  with open('final_ignored_samples.txt','w') as f:
+	  f.writelines(new_lines)
+  #os.rename("final_ignored_samples1.txt","final_ignored_samples.txt")
+	
 """
 def prepend_line(file_name, line):
 	#line='#include "HIPCHECK.h"'
@@ -62,14 +69,14 @@ def prepend_line(file_name, line):
 
 def prepend_line(file_name, line):
 	result=check_for_word(file_name,line)
-	if result==0:
+	if result==-1:
 		p=os.path.dirname(file_name)
 		file=open(file_name,'r')
 		lines = file.readlines()
 		for elem in lines:
 			if elem == '#include <stdio.h>\n':
 				index=lines.index(elem)
-				lines.insert(index+8,line)
+				lines.insert(index+1,line)
 			else:
 				continue	
 		with open(p+'/'+'a.cu.hip','w') as fp:
@@ -82,12 +89,10 @@ def prepend_line(file_name, line):
 
 def check_for_word(file_name,word):
 	file = open(file_name, 'r')
-	linelist = file.readlines()
+	linelist = file.read()
+	index=linelist.find(word)
 	file.close()
-	for line in linelist:
-		if str(word) in line:
-			return 1
-	return 0
+	return index
 		 
 
 
@@ -133,6 +138,7 @@ def setup():
 		os.system('rm CHANGELOG.md')
 		os.system('rm -rf .git')	
 		os.system('rm LICENSE')
+		os.chdir('../../')
 	print("Enter 'generate' to hipify additional files.")
 	user_input=input()
 	if user_input.lower() == 'generate':
@@ -270,7 +276,7 @@ def ftale(x):
 	generate(x)
 	apply_patches_individually(x)
 	compilation_1(x)
-	compilation_2(x)
+	#compilation_2(x)
 	runsample(x)
 	
 def generate_all(y):
@@ -386,10 +392,10 @@ def generate(x):
 	textToReplace="HIPCHECK"
 	fileToSearch=p+"/"+q+".hip"
 	
-	textToSearch1="#include <helper_cuda.h>"
-	textToReplace1='#include "helper_cuda_hipified.h"'
-	textToSearch2="#include <helper_functions.h>"
-	textToReplace2='#include "helper_functions.h"'
+	textToSearch1="#include <helper_cuda.h>\n"
+	textToReplace1='#include "helper_cuda_hipified.h"\n'
+	textToSearch2="#include <helper_functions.h>\n"
+	textToReplace2='#include "helper_functions.h"\n'
 	
 	tempFile=open(fileToSearch,'r+')
 	for line in fileinput.input(fileToSearch):
@@ -431,15 +437,19 @@ def apply_patches_individually(x):
 	dir=os.listdir(patch_path)
 	for fname in dir:
 		if os.path.isfile(patch_path+os.sep+fname):
-			f=open(patch_path+os.sep+fname,'r')
-			if search_path in f.read():
-				#print('found path in patch file '+fname)
-				patch_files.append(fname)
-			'''	
-			else:
-				print('Not found')
-			'''	
-			f.close()
+			#f=open(patch_path+os.sep+fname,'r')
+			with open(patch_path+os.sep+fname,encoding="utf8",errors='ignore') as f: 
+			#with open(patch_path+os.sep+fname) as f:
+				contents = f.read()
+				if search_path in contents:
+					#print('found path in patch file '+fname)
+					#lines = [x.decode('utf8').strip() for x in f.readlines()]
+					patch_files.append(fname)
+				'''	
+				else:
+					print('Not found')
+				'''	
+				f.close()
 	for patch in patch_files:
 		command='git apply --reject --whitespace=fix '+patch_path+'/'+patch
 		print(command)
@@ -454,95 +464,193 @@ def compilation_1(x):
 	x=x.replace('"', '')
 	p=os.path.dirname(x)
 	p=p.replace("\\","/")
-	if x=='src/samples/Samples/0_Introduction/simpleMPI/simpleMPI.cu' and user_platform.lower() == 'amd':
-		command='hipcc -I src/samples/Common src/samples/Samples/0_Introduction/simpleMPI/simpleMPI.cu.hip src/samples/Samples/0_Introduction/simpleMPI/simpleMPI_hipified.cpp -lmpi -o src/samples/Samples/0_Introduction/simpleMPI/simpleMPI.out'
-		print(command)
-		os.system(command)
-	elif x=='src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleDeviceLibrary.cu' or x=='/src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleSeparateCompilation.cu' and user_platform.lower() == 'amd':
-		command='hipcc -I src/samples/Common -fgpu-rdc src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleDeviceLibrary.cu.hip src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleSeparateCompilation.cu.hip -o src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleSeparateCompilation.out'
-		print(command)
-		os.system(command)	
-	elif x=='src/samples/Samples/0_Introduction/cudaOpenMP/cudaOpenMP.cu' and user_platform.lower() == 'amd':
-		command='hipcc -I src/samples/Common -fopenmp src/samples/Samples/0_Introduction/cudaOpenMP/cudaOpenMP.cu.hip -o src/samples/Samples/0_Introduction/cudaOpenMP/cudaOpenMP.out'
-		print(command)
-		os.system(command)
-	if x=='src/samples/Samples/0_Introduction/simpleMPI/simpleMPI.cu' and user_platform.lower() == 'nvidia':
-		command='hipcc -I src/samples/Common src/samples/Samples/0_Introduction/simpleMPI/simpleMPI.cu.cpp src/samples/Samples/0_Introduction/simpleMPI/simpleMPI_hipified.cpp -lmpi -o src/samples/Samples/0_Introduction/simpleMPI/simpleMPI.out'
-		print(command)
-		os.system(command)
-	elif x=='src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleDeviceLibrary.cu' or x=='/src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleSeparateCompilation.cu' and user_platform.lower() == 'nvidia':
-		command='hipcc -I src/samples/Common -fgpu-rdc src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleDeviceLibrary.cu.cpp src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleSeparateCompilation.cu.cpp -o src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleSeparateCompilation.out'
-		print(command)
-		os.system(command)	
-	elif x=='src/samples/Samples/0_Introduction/cudaOpenMP/cudaOpenMP.cu' and user_platform.lower() == 'nvidia':
-		command='hipcc -I src/samples/Common -fopenmp src/samples/Samples/0_Introduction/cudaOpenMP/cudaOpenMP.cu.cpp -o src/samples/Samples/0_Introduction/cudaOpenMP/cudaOpenMP.out'
-		print(command)
-		os.system(command)		
-	elif user_platform.lower()=='nvidia':
+	if user_platform.lower()=='nvidia':
 		for file in os.listdir(p):
 			if file.endswith("_hipified.cpp") or file.endswith(".cu.cpp"):
 				cpp.append(file)	
 	elif user_platform.lower()=='amd':	
 		for file in os.listdir(p):
 			if file.endswith("_hipified.cpp") or file.endswith(".cu.hip"):
-				cpp.append(file)	
-		
-			
-		
-
+				cpp.append(file)
 	cpp = [p+'/'+y for y in cpp]
-	command='hipcc -I src/samples/Common -I '+cuda_path+' '+' '.join(cpp)+' -o '+p+'/'+os.path.basename(os.path.dirname(x))+'.out'
+	file4=open('multithreaded_samples.txt', 'r')
+	threaded_samples=file4.read()
+	#print(threaded_samples)
+	if x in threaded_samples:
+		command='hipcc -fopenmp -fgpu-rdc -I src/samples/Common -I '+cuda_path+' '+' '.join(cpp)+' -o '+p+'/'+os.path.basename(os.path.dirname(x))+'.out'
+	else:
+		command='hipcc -I src/samples/Common -I '+cuda_path+' '+' '.join(cpp)+' -o '+p+'/'+os.path.basename(os.path.dirname(x))+'.out'
+	file4.close()	
 	print(command)
-	os.system(command)	
-
-	
+	os.system(command)			
+	'''			
+	if x=='src/samples/Samples/0_Introduction/simpleMPI/simpleMPI.cu' and user_platform.lower() == 'amd':
+		command='hipcc -I src/samples/Common src/samples/Samples/0_Introduction/simpleMPI/simpleMPI.cu.hip src/samples/Samples/0_Introduction/simpleMPI/simpleMPI_hipified.cpp -lmpi -o src/samples/Samples/0_Introduction/simpleMPI/simpleMPI.out'
+		print(command)
+		os.system(command)
+		return None
+	elif x=='src/samples/Samples/0_Introduction/UnifiedMemoryStreams/UnifiedMemoryStreams.cu' and user_platform.lower() == 'amd':
+		command='hipcc -fopenmp -I src/samples/Common -I /usr/local/cuda-12.0/targets/x86_64-linux/include src/samples/Samples/0_Introduction/UnifiedMemoryStreams/UnifiedMemoryStreams.cu.hip -o src/samples/Samples/0_Introduction/UnifiedMemoryStreams/UnifiedMemoryStreams.out'
+		print(command)
+		os.system(command)
+		return None	
+	elif x=='src/samples/Samples/0_Introduction/UnifiedMemoryStreams/UnifiedMemoryStreams.cu' and user_platform.lower() == 'nvidia':
+		command='hipcc -fopenmp -I src/samples/Common -I /usr/local/cuda-12.0/targets/x86_64-linux/include src/samples/Samples/0_Introduction/UnifiedMemoryStreams/UnifiedMemoryStreams.cu.cpp -o src/samples/Samples/0_Introduction/UnifiedMemoryStreams/UnifiedMemoryStreams.out'
+		print(command)
+		os.system(command)
+		return None	
+	elif x=='src/samples/Samples/0_Introduction/simpleCallback/simpleCallback.cu' and user_platform.lower() == 'amd':
+		command='hipcc -fopenmp -I src/samples/Common -I /usr/local/cuda-12.0/targets/x86_64-linux/include src/samples/Samples/0_Introduction/simpleCallback/simpleCallback.cu.hip src/samples/Samples/0_Introduction/simpleCallback/multithreading_hipified.cpp -o src/samples/Samples/0_Introduction/simpleCallback/simpleCallback.out'
+		print(command)
+		os.system(command)
+		return None	
+	elif x=='src/samples/Samples/0_Introduction/simpleCallback/simpleCallback.cu' and user_platform.lower() == 'nvidia':
+		command='hipcc -fopenmp -I src/samples/Common -I /usr/local/cuda-12.0/targets/x86_64-linux/include src/samples/Samples/0_Introduction/simpleCallback/simpleCallback.cu.cpp src/samples/Samples/0_Introduction/simpleCallback/multithreading_hipified.cpp -o src/samples/Samples/0_Introduction/simpleCallback/simpleCallback.out'
+		print(command)
+		os.system(command)
+		return None	
+	elif x=='src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleDeviceLibrary.cu' or x=='src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleSeparateCompilation.cu' and user_platform.lower() == 'amd':
+		command='hipcc -I src/samples/Common -fgpu-rdc src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleDeviceLibrary.cu.hip src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleSeparateCompilation.cu.hip -o src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleSeparateCompilation.out'
+		print(command)
+		os.system(command)
+		return None	
+	elif x=='src/samples/Samples/0_Introduction/asyncAPI/asyncAPI.cu' and user_platform.lower() == 'amd':
+		command='hipcc -fopenmp -I src/samples/Common -I /usr/local/cuda-12.0/targets/x86_64-linux/include src/samples/Samples/0_Introduction/asyncAPI/multithreading_hipified.cpp src/samples/Samples/0_Introduction/asyncAPI/asyncAPI.cu.hip -o src/samples/Samples/0_Introduction/asyncAPI/asyncAPI.out'
+		print(command)
+		os.system(command)
+		return None	
+	elif x=='src/samples/Samples/0_Introduction/asyncAPI/asyncAPI.cu' and user_platform.lower() == 'nvidia':
+		command='hipcc -fopenmp -I src/samples/Common -I /usr/local/cuda-12.0/targets/x86_64-linux/include src/samples/Samples/0_Introduction/asyncAPI/multithreading_hipified.cpp src/samples/Samples/0_Introduction/asyncAPI/asyncAPI.cu.cpp -o src/samples/Samples/0_Introduction/asyncAPI/asyncAPI.out'
+		print(command)
+		os.system(command)
+		return None	
+	elif x=='src/samples/Samples/0_Introduction/cudaOpenMP/cudaOpenMP.cu' and user_platform.lower() == 'amd':
+		command='hipcc -I src/samples/Common -fopenmp src/samples/Samples/0_Introduction/cudaOpenMP/cudaOpenMP.cu.hip -o src/samples/Samples/0_Introduction/cudaOpenMP/cudaOpenMP.out'
+		print(command)
+		os.system(command)
+		return None
+	if x=='src/samples/Samples/0_Introduction/simpleMPI/simpleMPI.cu' and user_platform.lower() == 'nvidia':
+		command='hipcc -I src/samples/Common src/samples/Samples/0_Introduction/simpleMPI/simpleMPI.cu.cpp src/samples/Samples/0_Introduction/simpleMPI/simpleMPI_hipified.cpp -lmpi -o src/samples/Samples/0_Introduction/simpleMPI/simpleMPI.out'
+		print(command)
+		os.system(command)
+		return None
+	elif x=='src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleDeviceLibrary.cu' or x=='src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleSeparateCompilation.cu' and user_platform.lower() == 'nvidia':
+		command='hipcc -I src/samples/Common -fgpu-rdc src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleDeviceLibrary.cu.cpp src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleSeparateCompilation.cu.cpp -o src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleSeparateCompilation.out'
+		print(command)
+		os.system(command)
+		return None	
+	elif x=='src/samples/Samples/0_Introduction/cudaOpenMP/cudaOpenMP.cu' and user_platform.lower() == 'nvidia':
+		command='hipcc -I src/samples/Common -fopenmp src/samples/Samples/0_Introduction/cudaOpenMP/cudaOpenMP.cu.cpp -o src/samples/Samples/0_Introduction/cudaOpenMP/cudaOpenMP.out'
+		print(command)
+		os.system(command)
+		return None
+	elif x=='src/samples/Samples/2_Concepts_and_Techniques/threadMigration/threadMigration_kernel.cu' and user_platform.lower() == 'amd':
+		command='hipcc -fopenmp -I src/samples/Common -I /usr/local/cuda-12.0/targets/x86_64-linux/include src/samples/Samples/2_Concepts_and_Techniques/threadMigration/threadMigration_kernel.cu.hip src/samples/Samples/2_Concepts_and_Techniques/threadMigration/threadMigration_hipified.cpp -o src/samples/Samples/2_Concepts_and_Techniques/threadMigration/threadMigration.out'
+		print(command)
+		os.system(command)
+		return None
+	elif x=='src/samples/Samples/2_Concepts_and_Techniques/threadMigration/threadMigration_kernel.cu' and user_platform.lower() == 'nvidia':
+		command='hipcc -fopenmp -I src/samples/Common -I /usr/local/cuda-12.0/targets/x86_64-linux/include src/samples/Samples/2_Concepts_and_Techniques/threadMigration/threadMigration_kernel.cu.cpp src/samples/Samples/2_Concepts_and_Techniques/threadMigration/threadMigration_hipified.cpp -o src/samples/Samples/2_Concepts_and_Techniques/threadMigration/threadMigration.out'
+		print(command)
+		os.system(command)
+		return None
+	'''		
 
 def compilation_2(x):
 	global cuda_path
 	global user_platform
 	cpp=[]
+	print(user_platform)
 	x=x.replace('"', '')
 	p=os.path.dirname(x)
 	p=p.replace("\\","/")
-	if x=='src/samples/Samples/0_Introduction/simpleMPI/simpleMPI.cu' and user_platform.lower() == 'amd':
-		command='hipcc -use-staticlib -I src/samples/Common src/samples/Samples/0_Introduction/simpleMPI/simpleMPI.cu.hip src/samples/Samples/0_Introduction/simpleMPI/simpleMPI_hipified.cpp -lmpi -o src/samples/Samples/0_Introduction/simpleMPI/simpleMPI.out'
-		print(command)
-		os.system(command)
-	elif x=='src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleDeviceLibrary.cu' or x=='/src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleSeparateCompilation.cu' and user_platform.lower() == 'amd':
-		command='hipcc -use-staticlib -I src/samples/Common -fgpu-rdc src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleDeviceLibrary.cu.hip src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleSeparateCompilation.cu.hip -o src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleSeparateCompilation.out'
-		print(command)
-		os.system(command)	
-	elif x=='src/samples/Samples/0_Introduction/cudaOpenMP/cudaOpenMP.cu' and user_platform.lower() == 'amd':
-		command='hipcc -use-staticlib -I src/samples/Common -fopenmp src/samples/Samples/0_Introduction/cudaOpenMP/cudaOpenMP.cu.hip -o src/samples/Samples/0_Introduction/cudaOpenMP/cudaOpenMP.out'
-		print(command)
-		os.system(command)
-	if x=='src/samples/Samples/0_Introduction/simpleMPI/simpleMPI.cu' and user_platform.lower() == 'nvidia':
-		command='hipcc -use-staticlib -I src/samples/Common src/samples/Samples/0_Introduction/simpleMPI/simpleMPI.cu.cpp src/samples/Samples/0_Introduction/simpleMPI/simpleMPI_hipified.cpp -lmpi -o src/samples/Samples/0_Introduction/simpleMPI/simpleMPI.out'
-		print(command)
-		os.system(command)
-	elif x=='src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleDeviceLibrary.cu' or x=='/src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleSeparateCompilation.cu' and user_platform.lower() == 'nvidia':
-		command='hipcc -use-staticlib -I src/samples/Common -fgpu-rdc src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleDeviceLibrary.cu.cpp src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleSeparateCompilation.cu.cpp -o src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleSeparateCompilation.out'
-		print(command)
-		os.system(command)	
-	elif x=='src/samples/Samples/0_Introduction/cudaOpenMP/cudaOpenMP.cu' and user_platform.lower() == 'nvidia':
-		command='hipcc -use-staticlib -I src/samples/Common -fopenmp src/samples/Samples/0_Introduction/cudaOpenMP/cudaOpenMP.cu.cpp -o src/samples/Samples/0_Introduction/cudaOpenMP/cudaOpenMP.out'
-		print(command)
-		os.system(command)		
-	elif user_platform.lower()=='nvidia':
+	if user_platform.lower()=='nvidia':
 		for file in os.listdir(p):
 			if file.endswith("_hipified.cpp") or file.endswith(".cu.cpp"):
 				cpp.append(file)	
 	elif user_platform.lower()=='amd':	
 		for file in os.listdir(p):
 			if file.endswith("_hipified.cpp") or file.endswith(".cu.hip"):
-				cpp.append(file)		
-			
-		
-
+				cpp.append(file)
 	cpp = [p+'/'+y for y in cpp]
-	command='hipcc -use-staticlib -I src/samples/Common -I '+cuda_path+' '+' '.join(cpp)+' -o '+p+'/'+os.path.basename(os.path.dirname(x))+'.out'
-	print(command)
-	os.system(command)
+	file4=open('multithreaded_samples.txt', 'r')
+	threaded_samples=file4.read()
+	#print(threaded_samples)
+	if x in threaded_samples:
+		command='hipcc -use-staticlib -fopenmp -fgpu-rdc -I src/samples/Common -I '+cuda_path+' '+' '.join(cpp)+' -o '+p+'/'+os.path.basename(os.path.dirname(x))+'.out'
+	else:
+		command='hipcc -use-staticlib -I src/samples/Common -I '+cuda_path+' '+' '.join(cpp)+' -o '+p+'/'+os.path.basename(os.path.dirname(x))+'.out'
+	file4.close()	
+	print(command)	
+	os.system(command)		
+	'''			
+	if x=='src/samples/Samples/0_Introduction/simpleMPI/simpleMPI.cu' and user_platform.lower() == 'amd':
+		command='hipcc -use-staticlib -I src/samples/Common src/samples/Samples/0_Introduction/simpleMPI/simpleMPI.cu.hip src/samples/Samples/0_Introduction/simpleMPI/simpleMPI_hipified.cpp -lmpi -o src/samples/Samples/0_Introduction/simpleMPI/simpleMPI.out'
+		print(command)
+		os.system(command)
+		return None
+	elif x=='src/samples/Samples/0_Introduction/UnifiedMemoryStreams/UnifiedMemoryStreams.cu' and user_platform.lower() == 'amd':
+		command='hipcc -use-staticlib -fopenmp -I src/samples/Common -I /usr/local/cuda-12.0/targets/x86_64-linux/include src/samples/Samples/0_Introduction/UnifiedMemoryStreams/UnifiedMemoryStreams.cu.hip -o src/samples/Samples/0_Introduction/UnifiedMemoryStreams/UnifiedMemoryStreams.out'
+		print(command)
+		os.system(command)
+		return None	
+	elif x=='src/samples/Samples/0_Introduction/UnifiedMemoryStreams/UnifiedMemoryStreams.cu' and user_platform.lower() == 'nvidia':
+		command='hipcc -use-staticlib -fopenmp -I src/samples/Common -I /usr/local/cuda-12.0/targets/x86_64-linux/include src/samples/Samples/0_Introduction/UnifiedMemoryStreams/UnifiedMemoryStreams.cu.cpp -o src/samples/Samples/0_Introduction/UnifiedMemoryStreams/UnifiedMemoryStreams.out'
+		print(command)
+		os.system(command)
+		return None	
+	elif x=='src/samples/Samples/0_Introduction/simpleCallback/simpleCallback.cu' and user_platform.lower() == 'amd':
+		command='hipcc -use-staticlib -fopenmp -I src/samples/Common -I /usr/local/cuda-12.0/targets/x86_64-linux/include src/samples/Samples/0_Introduction/simpleCallback/simpleCallback.cu.hip src/samples/Samples/0_Introduction/simpleCallback/multithreading_hipified.cpp -o src/samples/Samples/0_Introduction/simpleCallback/simpleCallback.out'
+		print(command)
+		os.system(command)
+		return None	
+	elif x=='src/samples/Samples/0_Introduction/simpleCallback/simpleCallback.cu' and user_platform.lower() == 'nvidia':
+		command='hipcc -use-staticlib -fopenmp -I src/samples/Common -I /usr/local/cuda-12.0/targets/x86_64-linux/include src/samples/Samples/0_Introduction/simpleCallback/simpleCallback.cu.hip src/samples/Samples/0_Introduction/simpleCallback/multithreading_hipified.cpp -o src/samples/Samples/0_Introduction/simpleCallback/simpleCallback.out'
+		print(command)
+		os.system(command)
+		return None	
+	elif x=='src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleDeviceLibrary.cu' or x=='/src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleSeparateCompilation.cu' and user_platform.lower() == 'amd':
+		command='hipcc -use-staticlib -I src/samples/Common -fgpu-rdc src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleDeviceLibrary.cu.hip src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleSeparateCompilation.cu.hip -o src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleSeparateCompilation.out'
+		print(command)
+		os.system(command)
+		return None	
+	elif x=='src/samples/Samples/0_Introduction/cudaOpenMP/cudaOpenMP.cu' and user_platform.lower() == 'amd':
+		command='hipcc -use-staticlib -I src/samples/Common -fopenmp src/samples/Samples/0_Introduction/cudaOpenMP/cudaOpenMP.cu.hip -o src/samples/Samples/0_Introduction/cudaOpenMP/cudaOpenMP.out'
+		print(command)
+		os.system(command)
+		return None
+	if x=='src/samples/Samples/0_Introduction/simpleMPI/simpleMPI.cu' and user_platform.lower() == 'nvidia':
+		command='hipcc -use-staticlib -I src/samples/Common src/samples/Samples/0_Introduction/simpleMPI/simpleMPI.cu.cpp src/samples/Samples/0_Introduction/simpleMPI/simpleMPI_hipified.cpp -lmpi -o src/samples/Samples/0_Introduction/simpleMPI/simpleMPI.out'
+		print(command)
+		os.system(command)
+		return None
+	elif x=='src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleDeviceLibrary.cu' or x=='/src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleSeparateCompilation.cu' and user_platform.lower() == 'nvidia':
+		command='hipcc -use-staticlib -I src/samples/Common -fgpu-rdc src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleDeviceLibrary.cu.cpp src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleSeparateCompilation.cu.cpp -o src/samples/Samples/0_Introduction/simpleSeparateCompilation/simpleSeparateCompilation.out'
+		print(command)
+		os.system(command)
+		return None	
+	elif x=='src/samples/Samples/0_Introduction/cudaOpenMP/cudaOpenMP.cu' and user_platform.lower() == 'nvidia':
+		command='hipcc -use-staticlib -I src/samples/Common -fopenmp src/samples/Samples/0_Introduction/cudaOpenMP/cudaOpenMP.cu.cpp -o src/samples/Samples/0_Introduction/cudaOpenMP/cudaOpenMP.out'
+		print(command)
+		os.system(command)
+		return None		
+	elif x=='src/samples/Samples/0_Introduction/asyncAPI/asyncAPI.cu' and user_platform.lower() == 'amd':
+		command='hipcc -fopenmp -use-staticlib -I src/samples/Common -I /usr/local/cuda-12.0/targets/x86_64-linux/include src/samples/Samples/0_Introduction/asyncAPI/multithreading_hipified.cpp src/samples/Samples/0_Introduction/asyncAPI/asyncAPI.cu.hip -o src/samples/Samples/0_Introduction/asyncAPI/asyncAPI.out'
+		print(command)
+		os.system(command)
+		return None	
+	elif x=='src/samples/Samples/0_Introduction/asyncAPI/asyncAPI.cu' and user_platform.lower() == 'nvidia':
+		command='hipcc -fopenmp -use-staticlib -I src/samples/Common -I /usr/local/cuda-12.0/targets/x86_64-linux/include src/samples/Samples/0_Introduction/asyncAPI/multithreading_hipified.cpp src/samples/Samples/0_Introduction/asyncAPI/asyncAPI.cu.cpp -o src/samples/Samples/0_Introduction/asyncAPI/asyncAPI.out'
+		print(command)
+		os.system(command)
+		return None	
+	else:
+		cpp = [p+'/'+y for y in cpp]
+		command='hipcc -use-staticlib -I src/samples/Common -I '+cuda_path+' '+' '.join(cpp)+' -o '+p+'/'+os.path.basename(os.path.dirname(x))+'.out'
+		print(command)
+		os.system(command)
+	'''			
+	
 
 def runsample(x):	
 	print('Processing Sample:'+x)
@@ -596,7 +704,7 @@ def fall(y):
 	"""
 	generate_all(y)
 	compilation_1_all(y)
-	compilation_2_all(y)
+	#compilation_2_all(y) -use-staticlib has been deprecated
 	runsample_all(y)
 
 
@@ -631,6 +739,7 @@ def rem(z):
 	'#include "cuda_d3d9_interop.h"','#include "drm.h"','#include "cuda_runtime_api.h"','#include "GLFW/glfw3.h"',
 	'#include "cuda/barrier"','#include "cuda_runtime.h"','#include "cooperative_groups/reduce.h"',
 	'#include "cuda_bf16.h"','#include "mma.h"','#include "cuda/pipeline"','"builtin_types.h"']
+	
 	listofFiles=getListOfFiles(z)
 	for elem in listofFiles:
 		if elem.endswith('.cu'):
@@ -695,71 +804,40 @@ def rem(z):
 	
 	#os.rename("final_ignored_samples1.txt","final_ignored_samples.txt")
 	os.remove('samples_to_be_ignored.txt')
-'''
-def main():
-	parser=argparse.ArgumentParser(description ='HIPIFY Cuda Samples.Please avoid and ignore samples with graphical operations')
-	parser.add_argument("-a", "--all", help='To run hipify-perl for all sample:python testhipify.py --all "[PATH TO SAMPLE FOLDER]"')
-	parser.add_argument("-b", "--generate", help='Generate .hip files')
-	parser.add_argument("-c", "--compile1", help='Compile .hip files')
-	parser.add_argument("-d", "--compile2", help='Compile .hip files with static libraries')
-	parser.add_argument("-e", "--execute", help='Execute .out files')
-	parser.add_argument("-f", "--generate_all", help='Generate all .hip files')
-	parser.add_argument("-g", "--compile1_all", help='Compile all .hip files')
-	parser.add_argument("-i", "--compile2_all", help='Compile all .hip files with static libraries')
-	parser.add_argument("-j", "--execute_all", help='Execute all .out files')
-	parser.add_argument("-k", "--parenthesis_check", help='Remove last parts from cu.hip files which are out of bounds.')
-	parser.add_argument("-l", "--parenthesis_check_all", help='Remove all last parts from cu.hip files which are out of bounds.')
-	parser.add_argument("-p", "--patch", help='Apply all patches in src/patches',action='store_true')
-	parser.add_argument("-t", "--tale", help='To run hipify-perl for single sample:python testhipify.py -t "[PATH TO SAMPLE]"')
-	parser.add_argument("-x", "--remove", help='Remove any sample relating to graphical operations e.g.DirectX,Vulcan,OpenGL,OpenCL and so on.')
-	parser.add_argument("-s", "--setup", help='Configure dependencies.',action='store_true')
-	args=parser.parse_args()
-	if args.tale:
-			x=args.tale
-			##print(x)
-			ftale(x)
-	if args.all:
-			y=args.all
-			##print(y)
-			fall(y)
-	if args.remove:
-			z=args.remove
-			rem(z)
-	if args.generate:
-			a=args.generate
-			generate(a)
-	if args.patch:
-			apply_patches()	
-	if args.compile1:
-			b=args.compile1
-			compilation_1(b)
-	if args.compile2:
-			c=args.compile2
-			compilation_2(c)
-	if args.execute:
-			d=args.execute
-			runsample(d)	
-	if args.generate_all:
-			a=args.generate_all
-			generate_all(a)
-	if args.compile1_all:
-			b=args.compile1_all
-			compilation_1_all(b)
-	if args.compile2_all:
-			c=args.compile2_all
-			compilation_2_all(c)
-	if args.execute_all:
-			d=args.execute_all
-			runsample_all(d)
-	if args.parenthesis_check:
-			e=args.parenthesis_check
-			parenthesis_check(e)
-	if args.parenthesis_check_all:
-			f=args.parenthesis_check_all
-			parenthesis_check_all(f)
-	if args.setup:
-			setup()
-
-if __name__ == "__main__":
-    main()  		
-'''
+	paths = []
+	for root, dirs, files in os.walk(z):
+		for file in files:
+			if file.endswith('.cu'):
+				path = os.path.join(root, file)
+				paths.append(path)
+	# write the paths to a file
+	output_file = "sample_list.txt"
+	with open(output_file, "w") as f:
+		for path in paths:
+			path=path.replace("\\","/")
+			f.write(path + "\n")
+	file1="sample_list.txt"
+	file2="final_ignored_samples.txt"
+	#file3="accused_samples.txt" 
+	with open(file1, "r") as f:
+		content1 = f.readlines()
+	with open(file2, "r") as f:
+		content2 = f.readlines()
+	#with open(file3, "r") as f:
+	#	content3 = f.readlines()	
+	# subtract the content of the second file from the first file
+	result = [line for line in content1 if line not in content2]
+	output_file = "working_samples.txt"
+	with open(output_file, "w") as f:
+		for line in result:
+			f.write(line)
+	'''		
+	# subtract the content of the third file from the second file
+	result = [line for line in content2 if line not in content3]
+	output_file = "final_ignored_samples1.txt"
+	with open(output_file, "w") as f:
+		for line in result:
+			f.write(line)
+	os.remove('final_ignored_samples.txt')		
+	os.rename("final_ignored_samples1.txt","final_ignored_samples.txt")	
+	'''				

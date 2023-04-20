@@ -674,6 +674,9 @@ bool cdpQuadtree(int warp_size) {
   HIPCHECK(
       hipMemcpy(nodes, &root, sizeof(Quadtree_node), hipMemcpyHostToDevice));
 
+  // We set the recursion limit for CDP to max_depth.
+  hipDeviceSetLimit(cudaLimitDevRuntimeSyncDepth, max_depth);
+
   // Build the quadtree.
   Parameters params(max_depth, min_points_per_node);
   std::cout << "Launching CDP kernel to build the quadtree" << std::endl;
@@ -735,6 +738,14 @@ int main(int argc, char **argv) {
   }
 
   bool ok = cdpQuadtree(deviceProps.warpSize);
+
+  return (ok ? EXIT_SUCCESS : EXIT_FAILURE);
+}
+ops.warpSize);
+
+  return (ok ? EXIT_SUCCESS : EXIT_FAILURE);
+}
+ops.warpSize);
 
   return (ok ? EXIT_SUCCESS : EXIT_FAILURE);
 }

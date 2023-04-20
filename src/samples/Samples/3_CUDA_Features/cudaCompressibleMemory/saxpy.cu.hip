@@ -36,9 +36,8 @@
 #include <hip/hip_runtime.h>
 #define CUDA_DRIVER_API
 #include "helper_cuda_hipified.h"
-#include "HIPCHECK.h"
 #include "compMalloc_hipified.h"
-
+#include "HIPCHECK.h"
 __global__ void saxpy(const float a, const float4 *x, const float4 *y, float4 *z, const size_t n)
 {
     for (size_t i = blockIdx.x * blockDim.x + threadIdx.x; i < n; i += gridDim.x * blockDim.x)
@@ -124,18 +123,18 @@ int main(int argc, char **argv)
 
     // Check that the selected device supports virtual memory management
     int vmm_supported = -1;
-   // HIPCHECK(hipDeviceGetAttribute(&vmm_supported,
-   //                       CU_DEVICE_ATTRIBUTE_VIRTUAL_ADDRESS_MANAGEMENT_SUPPORTED,
-   //                       currentDevice));
+    //HIPCHECK(hipDeviceGetAttribute(&vmm_supported,
+    //                      CU_DEVICE_ATTRIBUTE_VIRTUAL_ADDRESS_MANAGEMENT_SUPPORTED,
+    //                      currentDevice));
     if (vmm_supported == 0) {
         printf("Device %d doesn't support Virtual Memory Management, waiving the execution.\n", currentDevice);
         exit(EXIT_WAIVED);
     }
 
     int isCompressionAvailable;
-   // HIPCHECK(hipDeviceGetAttribute(&isCompressionAvailable,
-   //                          CU_DEVICE_ATTRIBUTE_GENERIC_COMPRESSION_SUPPORTED,
-   //                          currentDevice));
+    //HIPCHECK(hipDeviceGetAttribute(&isCompressionAvailable,
+    //                         CU_DEVICE_ATTRIBUTE_GENERIC_COMPRESSION_SUPPORTED,
+    //                         currentDevice));
     if (isCompressionAvailable == 0)
     {
         printf("Device %d doesn't support Generic memory compression, waiving the execution.\n", currentDevice);
@@ -160,7 +159,7 @@ int main(int argc, char **argv)
     bool compressibleZbuf = 0;
     if ((major == 8 && minor == 0) || (major == 8 && minor == 6))
     {
-        // On SM 8.0 and 8.6 GPUs compressible buffer can only be initialized 
+        // On SM 8.0 and 8.6 GPUs compressible buffer can only be initialized
         // through hipMemcpy.
         printf("allocating non-compressible Z buffer\n");
         HIPCHECK(allocateCompressible((void **)&z, size, false));
@@ -177,7 +176,7 @@ int main(int argc, char **argv)
     const float a = 1.0f;
     const float init_val = 1.0f;
     launchSaxpy(a, x, y, z, n, init_val, compressibleZbuf);
- 
+
     HIPCHECK(freeCompressible(x, size, true));
     HIPCHECK(freeCompressible(y, size, true));
     HIPCHECK(freeCompressible(z, size, true));

@@ -73,7 +73,7 @@ pthread_mutex_t g_mutex;
 
 #include <iostream>
 #include <cstring>
-
+#include "HIPCHECK.h"
 using namespace std;
 
 int NumThreads;
