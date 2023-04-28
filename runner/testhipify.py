@@ -13,12 +13,12 @@ from patch_gen2 import *
 from patch_gen3 import *
 '''
 #import argparse
-cuda_path = '/usr/local/cuda-12.0/targets/x86_64-linux/include'
-user_platform=''
 try:
-	with open('user_platform.txt','r') as f:
-			user_platform=f.read()
-	f.close()				
+	with open('config.txt','r') as f:
+			config_variables={variable.split("=")[0]:variable.split("=")[1].strip() for variable in f.readlines()}
+	f.close()
+	user_platform=config_variables["user_platform"]	
+	cuda_path=config_variables["cuda_path"]				
 except FileNotFoundError:
 	pass	
 def getListOfFiles(dirName):
@@ -99,19 +99,24 @@ def check_for_word(file_name,word):
 def setup():
 	global cuda_path
 	global user_platform
+	global config_variables
 	#cuda_path = '/usr/local/cuda-12.0/targets/x86_64-linux/include'
 	print("Enter Nvidia or AMD as per your system specifications.")
-	user_platform=input()
-	with open('user_platform.txt','w') as f:
-		f.write(str(user_platform))
-	f.close()	
-	print ('Confirm the following CUDA Installation path for compilation:')
+	user_input=input()
+	if user_input != '':
+		config_variables['user_platform']=user_input
+	print('Confirm the following CUDA Installation path for compilation:')
 	print('CUDA Path:'+cuda_path)
 	print('If Path is incorrect,please provide current path by typing CUDA or press any key to continue')
 	user_input=input()
 	if user_input.lower() == 'cuda':
 		print('Enter path of your CUDA installation')
-		cuda_path=input()  
+		config_variables['cuda_path']=input() 
+	with open('config.txt','w') as f:
+		#f.write(str(user_platform))
+		for variable, value in config_variables.items():
+			f.write(f"{variable}={value}\n")
+	f.close()	
 	os.system('gcc --version')
 	print('Enter gcc to install gcc compiler, or any other button to continue.')
 	user_input=input()
@@ -841,3 +846,48 @@ def rem(z):
 	os.remove('final_ignored_samples.txt')		
 	os.rename("final_ignored_samples1.txt","final_ignored_samples.txt")	
 	'''				
+			
+def nvidia_compilation():
+	nvidia_samples_dir='src/samples/Samples'
+	global cuda_path
+	'''
+	sample_dirs=os.listdir(nvidia_samples_dir)
+	print(sample_dirs)
+	for sample_dir in sample_dirs:
+		os.chdir(os.path.join(nvidia_samples_dir,sample_dir))
+		os.system("make")
+		os.system("./a.out")
+	for root,dirs,files in os.walk(nvidia_samples_dir):
+		if "Makefile" in files:
+			print('cd '+root)
+			os.chdir(root)
+			os.system("make")
+			os.system("./"+os.path.basename(root)+'.o')
+	'''
+	listOfFiles=getListOfFiles(nvidia_samples_dir)
+	for elem in listOfFiles:
+		if elem.endswith('.cu'):  ##or elem.endswith('.cpp') 
+			cpp=[]
+			elem=elem.replace('"', '')
+			p=os.path.dirname(elem)
+			p=p.replace("\\","/")
+			for file in os.listdir(p):
+					if (file.endswith(".cpp") or file.endswith(".cu")) and not (file.endswith(".cu.cpp") or file.endswith("_hipified.cpp")):
+						cpp.append(file)	
+			cpp = [p+'/'+y for y in cpp]
+			file4=open('multithreaded_samples.txt', 'r')
+			threaded_samples=file4.read()
+			#print(threaded_samples)
+			if elem in threaded_samples:
+				command='nvcc -fopenmp -fgpu-rdc -I src/samples/Common -I '+cuda_path+' '+' '.join(cpp)+' -o '+p+'/a.out'
+			else:
+				command='nvcc -I src/samples/Common -I '+cuda_path+' '+' '.join(cpp)+' -o '+p+'/a.out'
+			file4.close()	
+			print(command)	
+			os.system(command)
+			print('Processing Sample:'+elem)
+			command='./'+os.path.dirname(elem)+'/'+'a.out'
+			print(command)
+			os.system(command)
+
+				
