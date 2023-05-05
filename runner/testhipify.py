@@ -2,7 +2,7 @@ import os
 import fileinput
 import os.path
 from sys import platform
-
+import subprocess
 from runner import patch_gen, patch_gen2, patch_gen3
 '''
 import patch_gen
@@ -94,9 +94,168 @@ def check_for_word(file_name,word):
 	file.close()
 	return index
 		 
+def has_nvidia_gpu():
+	try:
+		subprocess.check_output(['nvidia-smi'])
+		return True
+	except:
+		return False
+	
+def has_amd_gpu():
+	try:
+		subprocess.check_output(['rocminfo'])	
+		return True
+	except:
+		return False
+
+def setup1():
+	global cuda_path
+	global user_platform
+	global config_variables
+	if has_nvidia_gpu():
+		config_variables['user_platform']='Nvidia'
+	elif has_amd_gpu():
+		config_variables['user_platform']='AMD'
+	print('If CUDA is not installed,refer to this link and follow the steps:https://developer.nvidia.com/cuda-downloads')
+	print('CUDA Path:'+cuda_path)
+	with open('config.txt', 'w') as f:
+		# f.write(str(user_platform))
+		for variable, value in config_variables.items():
+			f.write(f"{variable}={value}\n")
+	f.close()    
+	os.system('gcc --version')
+	user_input = 'gcc' # set to 'gcc' to install gcc compiler
+	if user_input.lower() == 'gcc':
+		os.system('sudo apt install gcc')
+	user_input = 'requirements' 
+	if user_input.lower() == 'requirements':
+		os.system('pip install -r requirements.txt')   
+	user_input = 'omp'
+	if user_input.lower() == 'omp':
+		os.system('sudo apt install libomp-dev')
+		os.system('echo |cpp -fopenmp -dM |grep -i open')
+		print('Enter number of threads ')
+		x = 4 
+		os.system(f'export OMP_NUM_THREADS={x}')
+		print("Always add -fopenmp flag on compilation.")
+	user_input = 'mpi' 
+	if user_input.lower() == 'mpi':
+		print('cd ~')
+		os.chdir(os.path.expanduser("~"))
+		print('wget https://download.open-mpi.org/release/open-mpi/v3.1/openmpi-3.1.3.tar.gz')
+		os.system('wget https://download.open-mpi.org/release/open-mpi/v3.1/openmpi-3.1.3.tar.gz')
+		print('tar -xzvf openmpi-3.1.3.tar.gz')
+		os.system('tar -xzvf openmpi-3.1.3.tar.gz')
+		os.system('mv -r ')
+		print('cd openmpi-3.1.3')
+		os.system('cd openmpi-3.1.3')
+		os.chdir('openmpi-3.1.3')
+		print('pwd')
+		os.system('pwd')
+		print('./configure --prefix=/usr/local/')
+		os.system('./configure --prefix=/usr/local/')
+		print('./configure --prefix=/usr/local/openmpi-3.1.3/')
+		os.system('./configure --prefix=/usr/local/openmpi-3.1.3/')
+		print('sudo make all install')
+		os.system('sudo make all install')
+		print('After make install is completed, mpirun or orterun executable should be at /usr/local/bin/.')
+		print('echo "export PATH=$PATH:/usr/local/bin" >> $HOME/.bashrc')
+		os.system('echo "export PATH=$PATH:/usr/local/bin" >> $HOME/.bashrc')
+		print('echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib" > $HOME/.bashrc')
+		os.system('echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib" > $HOME/.bashrc')
+		print('export PATH=$PATH:/usr/local/bin')
+		os.system('export PATH=$PATH:/usr/local/bin')
+		print('export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib')
+		os.system('export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib')
+		print('source $HOME/.bashrc')
+		os.system('source $HOME/.bashrc')
+		print('mpirun --version')
+		os.system('mpirun --version')
+'''
+def install_openmp():
+    try:
+        # check if OpenMP is installed
+        subprocess.check_output(['which', 'gcc'])
+        subprocess.check_output(['which', 'g++'])
+        subprocess.check_output(['which', 'omp.h'])
+        print('OpenMP already installed')
+        return True
+    except:
+        # Install OpenMP
+        try:
+            package_manager = None
+            # Detect package manager based on system
+            if subprocess.call(['which', 'apt-get']):
+                package_manager = 'apt-get'
+            elif subprocess.call(['which', 'yum']):
+                package_manager = 'yum'
+            elif subprocess.call(['which', 'pacman']):
+                package_manager = 'pacman'
+
+            if package_manager:
+                subprocess.check_call([package_manager, '-y', 'install', 'gcc', 'g++', 'libomp-dev'])
+                print('OpenMP installed successfully')
+                return True
+            else:
+                print('Unable to detect package manager')
+                return False
+        except:
+            print('Unable to install OpenMP')
+            return False
 
 
-def setup():
+def install_openmpi():
+    try:
+        # check if OpenMPI is installed
+        subprocess.check_output(['which', 'mpicc'])
+        subprocess.check_output(['which', 'mpic++'])
+        print('OpenMPI already installed')
+        return True
+    except:
+        # Install OpenMPI
+        try:
+            package_manager = None
+            # Detect package manager based on system
+            if subprocess.call(['which', 'apt-get']):
+                package_manager = 'apt-get'
+            elif subprocess.call(['which', 'yum']):
+                package_manager = 'yum'
+            elif subprocess.call(['which', 'pacman']):
+                package_manager = 'pacman'
+
+            if package_manager:
+                subprocess.check_call([package_manager, '-y', 'install', 'openmpi', 'libopenmpi-dev'])
+                print('OpenMPI installed successfully')
+                return True
+            else:
+                print('Unable to detect package manager')
+                return False
+        except:
+            print('Unable to install OpenMPI')
+            return False
+'''		
+def new_samples():
+		os.system('cp -r src-original/patches src/')
+		os.system('cp -r src-original/samples src/')
+		os.system('rm -rf src/samples')
+		os.chdir('src/')
+		os.system('git clone https://github.com/NVIDIA/cuda-samples.git')
+		os.system('mv cuda-samples samples')
+		os.chdir('../')
+		os.system('cp -r src-original/samples/Common/ src/samples/')
+		os.chdir('src/samples')
+		os.system('rm .gitignore')
+		os.system('rm README.md')
+		os.system('rm CHANGELOG.md')
+		os.system('rm -rf .git')	
+		os.system('rm LICENSE')
+		os.chdir('../../')
+		patch_gen.generate_all('src/samples/Samples')
+		patch_gen2.generate_all('src/samples/Samples')
+		patch_gen3.generate_all('src/samples/Samples')
+
+
+def setup2():
 	global cuda_path
 	global user_platform
 	global config_variables
@@ -469,6 +628,18 @@ def compilation_1(x):
 	x=x.replace('"', '')
 	p=os.path.dirname(x)
 	p=p.replace("\\","/")
+	for file in os.listdir(p):
+		if file.endswith(".out") or file.endswith(".o"):
+			os.remove(os.path.join(p,file))
+	try:		
+		for file in os.listdir(p):		
+			if os.path.getsize(os.path.join(p,file))==0 and file in os.listdir(p.replace("src/","src-original/")):
+				x_original=x.replace("src/","src-original/")
+				alternate_file=x_original
+				os.remove(os.path.join(p,file))
+				os.rename(alternate_file,os.path.join(p,file))
+	except FileNotFoundError as e:
+		print(f'Error:{e}.Skipping replacement of empty files.')						
 	if user_platform.lower()=='nvidia':
 		for file in os.listdir(p):
 			if file.endswith("_hipified.cpp") or file.endswith(".cu.cpp"):
@@ -482,9 +653,9 @@ def compilation_1(x):
 	threaded_samples=file4.read()
 	#print(threaded_samples)
 	if x in threaded_samples:
-		command='hipcc -fopenmp -fgpu-rdc -I src/samples/Common -I '+cuda_path+' '+' '.join(cpp)+' -o '+p+'/'+os.path.basename(os.path.dirname(x))+'.out'
+		command='hipcc -I /opt/rocm/include -fopenmp -fgpu-rdc -I src/samples/Common -I '+cuda_path+' '+' '.join(cpp)+' -lamdhip64 -o '+p+'/'+os.path.basename(os.path.dirname(x))+'.out '
 	else:
-		command='hipcc -I src/samples/Common -I '+cuda_path+' '+' '.join(cpp)+' -o '+p+'/'+os.path.basename(os.path.dirname(x))+'.out'
+		command='hipcc -I /opt/rocm/include -I src/samples/Common -I '+cuda_path+' '+' '.join(cpp)+' -lamdhip64 -o '+p+'/'+os.path.basename(os.path.dirname(x))+'.out'
 	file4.close()	
 	print(command)
 	os.system(command)			
@@ -582,9 +753,9 @@ def compilation_2(x):
 	threaded_samples=file4.read()
 	#print(threaded_samples)
 	if x in threaded_samples:
-		command='hipcc -use-staticlib -fopenmp -fgpu-rdc -I src/samples/Common -I '+cuda_path+' '+' '.join(cpp)+' -o '+p+'/'+os.path.basename(os.path.dirname(x))+'.out'
+		command='hipcc -I /opt/rocm/include -use-staticlib -fopenmp -fgpu-rdc -I src/samples/Common -I '+cuda_path+' '+' '.join(cpp)+' -lamdhip64 -o '+p+'/'+os.path.basename(os.path.dirname(x))+'.out'
 	else:
-		command='hipcc -use-staticlib -I src/samples/Common -I '+cuda_path+' '+' '.join(cpp)+' -o '+p+'/'+os.path.basename(os.path.dirname(x))+'.out'
+		command='hipcc -I /opt/rocm/include -use-staticlib -I src/samples/Common -I '+cuda_path+' '+' '.join(cpp)+' -lamdhip64 -o '+p+'/'+os.path.basename(os.path.dirname(x))+'.out'
 	file4.close()	
 	print(command)	
 	os.system(command)		
@@ -889,5 +1060,3 @@ def nvidia_compilation():
 			command='./'+os.path.dirname(elem)+'/'+'a.out'
 			print(command)
 			os.system(command)
-
-				

@@ -3,6 +3,7 @@ from .testhipify import *
 import argparse
 def main():
     parser=argparse.ArgumentParser(description ='HIPIFY Cuda Samples.Please avoid and ignore samples with graphical operations')
+    #group = parser.add_mutually_exclusive_group()
     parser.add_argument("-a", "--all", help='To run hipify-perl for all sample:python testhipify.py --all "[PATH TO SAMPLE FOLDER]"')
     parser.add_argument("-b", "--generate", help='Generate .hip files')
     parser.add_argument("-c", "--compile1", help='Compile .hip files')
@@ -14,10 +15,13 @@ def main():
     parser.add_argument("-j", "--execute_all", help='Execute all .out files')
     parser.add_argument("-k", "--parenthesis_check", help='Remove last parts from cu.hip files which are out of bounds.')
     parser.add_argument("-l", "--parenthesis_check_all", help='Remove all last parts from cu.hip files which are out of bounds.')
+    parser.add_argument("-n", "--nvidia_compile", help='Compile and execute via nvcc.',action='store_true')
     parser.add_argument("-p", "--patch", help='Apply all patches in src/patches',action='store_true')
     parser.add_argument("-t", "--tale", help='To run hipify-perl for single sample:python testhipify.py -t "[PATH TO SAMPLE]"')
     parser.add_argument("-x", "--remove", help='Remove any sample relating to graphical operations e.g.DirectX,Vulcan,OpenGL,OpenCL and so on.')
-    parser.add_argument("-s", "--setup", help='Configure dependencies.',action='store_true')
+    parser.add_argument("-s", "--setup1", help='Configure dependencies automatically.',action='store_true')
+    parser.add_argument("-v", "--setup2", help='Configure dependencies manually.',action='store_true')
+    parser.add_argument("-u", "--new_samples", help='Download latest samples from Repository.',action='store_true')
 
     args=parser.parse_args()
     if args.tale:
@@ -36,6 +40,8 @@ def main():
         generate(a)
     if args.patch:
         apply_patches()	
+    if args.nvidia_compile:
+        nvidia_compilation()
     if args.compile1:
         b=args.compile1
         compilation_1(b)
@@ -63,8 +69,13 @@ def main():
     if args.parenthesis_check_all:
         f=args.parenthesis_check_all
         parenthesis_check_all(f)
-    if args.setup:
-        setup()	
+    if args.setup1:
+        setup1()	
+    if args.setup2:
+        setup2()	
+    if args.new_samples:
+        new_samples()	
+					
 
 if __name__ == "__main__":
     main()        
